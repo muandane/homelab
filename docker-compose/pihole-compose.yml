@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+
+  traefik:
+    image: "traefik:v2.10"
+    container_name: "traefik"
+    restart: unless-stopped
+    command:
+    - "--log.level=DEBUG"
+    - "--api.insecure=true"
+    - "--providers.docker=true"
+    - "--providers.docker.network=traefik" # replace with your configured Docker network name
+    - "--entrypoints.web.address=:80"
+    - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+    - "--entrypoints.websecure.address=:443"
+    - "--certificatesresolvers.myresolver.acme.dnschallenge=true"
+    - "--certificatesresolvers.myresolver.acme.dnschallenge.provider=ovh"
+    - "--certificatesresolvers.myresolver.acme.email=your@email.com"
+    - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+    - "443:443"
+    - "80:80"
+    - "8080:8080"
+    environment:
+    - "OVH_ENDPOINT=<OVH_ENDPOINT>"
+    - "OVH_APPLICATION_KEY=<OVH_APPLICATION_KEY>"
+    - "OVH_APPLICATION_SECRET=<OVH_APPLICATION_SECRET>"
+    - "OVH_CONSUMER_KEY=<OVH_CONSUMER_KEY>""
+    volumes:
+    - "./letsencrypt:/letsencrypt"
+    - "/var/run/docker.sock:/var/run/docker.sock:ro"
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+    - "53:53/tcp"
+    - "53:53/udp"
+    environment:
+      TZ: '<region/timezone>'
+      # WEBPASSWORD: '<PASSWORD>' # if not specified it will be generated randomly
+      VIRTUAL_PORT: 80 # required for the web interface to be accessible when using a reverse proxy
+    volumes:
+    - './etc-pihole:/etc/pihole'
+    - './etc-dnsmasq.d:/etc/dnsmasq.d'
+    restart: unless-stopped
+    labels:
+    - "traefik.http.routers.pihole.entrypoints=websecure"
+    - "traefik.http.routers.pihole.rule=Host(`pihole.domain.tld`)"
+    - "traefik.http.routers.pihole.middlewares=pihole-admin"
+    - "traefik.http.routers.pihole.tls=true"
+    - "traefik.http.routers.pihole.service=pihole"
+    - "traefik.http.middlewares.pihole-admin.addprefix.prefix=/admin"
+    - "traefik.http.routers.pihole.tls.certresolver=myresolver"
+    - "traefik.http.routers.pihole_http.entrypoints=web"
+    - "traefik.http.routers.pihole_http.rule=Host(`pihole.domain.tld`)"
+    - "traefik.http.routers.pihole_http.middlewares=redirect-to-https"
+    - "traefik.http.services.pihole.loadBalancer.server.port=80"
