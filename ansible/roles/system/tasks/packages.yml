@@ -1,0 +1,11 @@
+# - name: Update packages
+#   dnf:
+#     name: "*"
+#     state: latest
+
+- name: Install packages
+  dnf:
+    name:
+    - neofetch
+    - fish
+    state: latest

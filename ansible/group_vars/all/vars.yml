@@ -1,0 +1,5 @@
+username: vemto
+shell: "/usr/bin/fish"
+
+pip_install_packages:
+- name: docker
